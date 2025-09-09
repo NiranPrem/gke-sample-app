@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gke-app
+  labels:
+    app: gke-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gke-app
+  template:
+    metadata:
+      labels:
+        app: gke-app
+    spec:
+      containers:
+      - name: gke-app
+        image: us-central1-docker.pkg.dev/useful-variety-470306-n5/mydocker/gke-app:latest
+        ports:
+        - containerPort: 8080
