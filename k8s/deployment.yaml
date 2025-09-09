@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: gke-app
-        image: us-central1-docker.pkg.dev/useful-variety-470306-n5/mydocker/gke-app:latest
+        image: IMAGE_PLACEHOLDER   # 👈 Jenkins replaces this
         ports:
         - containerPort: 8080
