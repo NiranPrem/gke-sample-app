@@ -1,18 +1,20 @@
-# Use Node.js base image
-FROM node:18-alpine
+# Use Python base image
+FROM python:3.9-slim
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY backend/package*.json ./
-RUN npm install --production
+# Install backend dependencies
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
-COPY backend/ ./
+COPY backend/ ./backend
 
-# Expose port
-EXPOSE 8080
+# Copy frontend files (to be served by Flask or directly as static files)
+COPY frontend/ ./frontend
 
-# Start app
-CMD ["npm", "start"]
+# Expose the Flask port
+EXPOSE 5000
+
+# Run the Flask app
+CMD ["python", "backend/app.py"]
