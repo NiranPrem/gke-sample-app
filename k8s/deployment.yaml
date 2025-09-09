@@ -15,7 +15,7 @@ spec:
         app: gke-app
     spec:
       containers:
-      - name: gke-app
-        image: IMAGE_PLACEHOLDER   # 👈 Jenkins replaces this
-        ports:
-        - containerPort: 8080
+        - name: gke-app
+          image: IMAGE_PLACEHOLDER   # replaced by Jenkins
+          ports:
+            - containerPort: 5000
