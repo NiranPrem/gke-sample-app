@@ -5,7 +5,7 @@ metadata:
   labels:
     app: gke-app
 spec:
-  replicas: 2
+  replicas: 6   # 2 per node (since you have 3 nodes)
   selector:
     matchLabels:
       app: gke-app
@@ -19,3 +19,10 @@ spec:
           image: IMAGE_PLACEHOLDER   # replaced by Jenkins
           ports:
             - containerPort: 5000
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: gke-app
