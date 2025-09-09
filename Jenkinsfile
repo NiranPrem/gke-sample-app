@@ -2,41 +2,49 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_ID = "useful-variety-470306-n5"
-        REGION = "us-central1"
-        REPO = "mydocker"
-        IMAGE = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/gke-app"
-        GKE_CLUSTER = "my-gke-cluster"
-        GKE_ZONE = "us-central1-a"
+        PROJECT_ID = 'useful-variety-470306-n5'
+        CLUSTER = 'my-gke-cluster'
+        ZONE = 'us-central1-a'
+        REGION = 'us-central1'
+        REPO = 'mydocker'
+        IMAGE = 'gke-app'
         GOOGLE_APPLICATION_CREDENTIALS = credentials('gke-sa-key')
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-username/gke-sample-app.git'
+                git branch: 'main', url: 'https://github.com/NiranPrem/gke-sample-app.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Auth to GCP') {
             steps {
-                sh 'docker build -t $IMAGE:$BUILD_NUMBER .'
+                sh '''
+                  gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+                  gcloud config set project $PROJECT_ID
+                  gcloud config set compute/zone $ZONE
+                  gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
+                '''
             }
         }
 
-        stage('Push to Artifact Registry') {
+        stage('Build & Push Docker Image') {
             steps {
-                sh 'gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS'
-                sh 'gcloud auth configure-docker ${REGION}-docker.pkg.dev -q'
-                sh 'docker push $IMAGE:$BUILD_NUMBER'
+                sh '''
+                  gcloud auth configure-docker $REGION-docker.pkg.dev -q
+                  docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE:$BUILD_NUMBER .
+                  docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE:$BUILD_NUMBER
+                '''
             }
         }
 
         stage('Deploy to GKE') {
             steps {
-                sh 'gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS'
-                sh 'gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE --project $PROJECT_ID'
-                sh "kubectl set image deployment/gke-app gke-app=$IMAGE:$BUILD_NUMBER --record"
+                sh '''
+                  sed -i "s|IMAGE_PLACEHOLDER|$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE:$BUILD_NUMBER|" k8s/deployment.yaml
+                  kubectl apply -f k8s/
+                '''
             }
         }
     }
