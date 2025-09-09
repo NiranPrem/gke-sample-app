@@ -1,46 +1,62 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: gke-app
-  labels:
-    app: gke-app
-spec:
-  replicas: 6   # 2 per node (since you have 3 nodes)
-  selector:
-    matchLabels:
-      app: gke-app
-  template:
-    metadata:
-      labels:
-        app: gke-app
-    spec:
-      containers:
-        - name: gke-app
-          image: IMAGE_PLACEHOLDER   # replaced by Jenkins
-          ports:
-            - containerPort: 5000
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-        - name: nginx-sidecar
-          image: nginx:latest
-          ports:
-            - containerPort: 80
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 256Mi
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: DoNotSchedule
-          labelSelector:
-            matchLabels:
-              app: gke-app
+pipeline {
+    agent any
+
+    environment {
+        // If you create a new service account key in GCP,
+        // update Jenkins credentials ID here
+        GOOGLE_APPLICATION_CREDENTIALS = credentials('gke-sa-key')  
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // No change needed unless you rename repo/branch or rotate GitHub token
+                git branch: 'main', credentialsId: 'github-token', url: 'https://github.com/NiranPrem/gke-sample-app.git'
+            }
+        }
+
+        stage('Auth to GCP') {
+            steps {
+                sh '''
+                    gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+
+                    // 🔄 Change to NEW Project ID if you use a different project
+                    gcloud config set project useful-variety-470306-n5
+
+                    // 🔄 Change to NEW Zone/Region of the new cluster
+                    gcloud config set compute/zone us-central1-a
+
+                    // 🔄 Change to NEW Cluster Name + Project + Zone
+                    gcloud container clusters get-credentials my-gke-cluster --zone us-central1-a --project useful-variety-470306-n5
+                '''
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    // 🔄 Update Project ID + Artifact Registry repo name if changed
+                    def imageTag = "us-central1-docker.pkg.dev/useful-variety-470306-n5/mydocker/gke-app:${env.BUILD_NUMBER}"
+                    
+                    sh """
+                        // 🔄 Update region if registry region changes
+                        gcloud auth configure-docker us-central1-docker.pkg.dev -q
+                        
+                        docker build -t ${imageTag} .
+                        docker push ${imageTag}
+
+                        // Updates deployment.yaml with the correct image tag
+                        sed -i 's|IMAGE_PLACEHOLDER|${imageTag}|g' k8s/deployment.yaml
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to GKE') {
+            steps {
+                // No change needed unless you deploy to a different namespace
+                sh 'kubectl apply -f k8s/'
+            }
+        }
+    }
+}
