@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: gke-app
 spec:
-  replicas: 1
+  replicas: 6   # ⬅️ now 6 pods
   selector:
     matchLabels:
       app: gke-app
@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: gke-app
-          image: "IMAGE_PLACEHOLDER"   # 🔑 Will be replaced by kubectl set image
+          image: "IMAGE_PLACEHOLDER"   # replaced dynamically in Jenkins
           ports:
             - containerPort: 5000
