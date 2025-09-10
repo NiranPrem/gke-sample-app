@@ -4,6 +4,11 @@ pipeline {
     environment {
         // Service Account key stored in Jenkins credentials
         GOOGLE_APPLICATION_CREDENTIALS = credentials('gke-sa-key')
+        PROJECT_ID = "useful-variety-470306-n5"
+        CLUSTER = "my-gke-cluster"
+        ZONE = "us-central1-a"
+        REPO = "mydocker"
+        APP_NAME = "gke-app"
     }
 
     stages {
@@ -17,15 +22,9 @@ pipeline {
             steps {
                 sh '''
                     gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-
-                    # 🔄 Update to your new Project ID
-                    gcloud config set project useful-variety-470306-n5
-
-                    # 🔄 Update to your new Zone/Region
-                    gcloud config set compute/zone us-central1-a
-
-                    # 🔄 Update to your new Cluster name
-                    gcloud container clusters get-credentials my-gke-cluster --zone us-central1-a --project useful-variety-470306-n5
+                    gcloud config set project $PROJECT_ID
+                    gcloud config set compute/zone $ZONE
+                    gcloud container clusters get-credentials $CLUSTER --zone $ZONE --project $PROJECT_ID
                 '''
             }
         }
@@ -33,8 +32,7 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
-                    // 🔄 Update project-id/registry/repo name if changed
-                    def imageTag = "us-central1-docker.pkg.dev/useful-variety-470306-n5/mydocker/gke-app:${env.BUILD_NUMBER}"
+                    def imageTag = "us-central1-docker.pkg.dev/${PROJECT_ID}/${REPO}/${APP_NAME}:${env.BUILD_NUMBER}"
 
                     sh """
                         gcloud auth configure-docker us-central1-docker.pkg.dev -q
@@ -42,7 +40,7 @@ pipeline {
                         docker push ${imageTag}
                     """
 
-                    // Save the image tag for next stage
+                    // Save for next stage
                     env.IMAGE_TAG = imageTag
                 }
             }
@@ -51,11 +49,11 @@ pipeline {
         stage('Deploy to GKE') {
             steps {
                 sh """
-                    # First time apply deployment & service (if not created yet)
+                    # Apply manifests (first-time deployment)
                     kubectl apply -f k8s/
 
-                    # Update only the image safely
-                    kubectl set image deployment/gke-app gke-app=${IMAGE_TAG} --namespace=default
+                    # Update the deployment with the new image
+                    kubectl set image deployment/${APP_NAME} ${APP_NAME}=${IMAGE_TAG} --namespace=default
                 """
             }
         }
