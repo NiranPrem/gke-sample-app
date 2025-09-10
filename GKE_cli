@@ -1,0 +1,10 @@
+gcloud config set project useful-variety-470306-n5 && \
+gcloud container clusters create gke-sample-cluster \
+  --zone us-central1-c \
+  --num-nodes 2 \
+  --machine-type e2-medium \
+  --disk-size 50 \
+  --enable-autoupgrade \
+  --enable-autorepair && \
+gcloud container clusters get-credentials gke-sample-cluster --zone us-central1-c && \
+kubectl get nodes
