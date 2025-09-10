@@ -2,13 +2,18 @@ pipeline {
     agent any
 
     environment {
-        // Service Account key stored in Jenkins credentials
+        // GCP Service Account key stored in Jenkins credentials
         GOOGLE_APPLICATION_CREDENTIALS = credentials('gke-sa-key')
         PROJECT_ID = "useful-variety-470306-n5"
-        CLUSTER = "my-gke-cluster"
-        ZONE = "us-central1-a"
+        CLUSTER = "gke-sample-cluster"
+        ZONE = "us-central1-c"
         REPO = "mydocker"
         APP_NAME = "gke-app"
+    }
+
+    tools {
+        maven 'Maven'   // make sure Maven tool is configured in Jenkins
+        jdk 'jdk17'     // make sure JDK 17 is configured in Jenkins
     }
 
     stages {
@@ -29,6 +34,28 @@ pipeline {
             }
         }
 
+        stage('Build & Unit Test') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarQube') {   // Name must match Jenkins SonarQube config
+                    sh 'mvn sonar:sonar -Dsonar.projectKey=gke-sample-app'
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('Build & Push Docker Image') {
             steps {
                 script {
@@ -40,7 +67,6 @@ pipeline {
                         docker push ${imageTag}
                     """
 
-                    // Save for next stage
                     env.IMAGE_TAG = imageTag
                 }
             }
@@ -49,10 +75,7 @@ pipeline {
         stage('Deploy to GKE') {
             steps {
                 sh """
-                    # Apply manifests (first-time deployment)
                     kubectl apply -f k8s/
-
-                    # Update the deployment with the new image
                     kubectl set image deployment/${APP_NAME} ${APP_NAME}=${IMAGE_TAG} --namespace=default
                 """
             }
