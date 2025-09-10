@@ -2,8 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gke-app
+  labels:
+    app: gke-app
 spec:
-  replicas: 6   # ⬅️ now 6 pods
+  replicas: 6
   selector:
     matchLabels:
       app: gke-app
@@ -14,6 +16,6 @@ spec:
     spec:
       containers:
         - name: gke-app
-          image: "IMAGE_PLACEHOLDER"   # replaced dynamically in Jenkins
+          image: us-central1-docker.pkg.dev/useful-variety-470306-n5/mydocker/gke-app:latest
           ports:
             - containerPort: 5000
