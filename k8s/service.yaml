@@ -7,5 +7,6 @@ spec:
   selector:
     app: gke-app
   ports:
-    - port: 80
-      targetPort: 5000   # matches containerPort
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
